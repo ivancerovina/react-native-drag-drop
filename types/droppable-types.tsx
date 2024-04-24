@@ -5,7 +5,7 @@ import { ElementLayout } from "./dragdropcontext-types";
 /**
  * Props for the Droppable component, used to create droppable areas.
  */
-export interface DroppableProps {
+export type DroppableProps = {
   /**
    * The child elements to be rendered inside the Droppable component.
    */
@@ -22,6 +22,10 @@ export interface DroppableProps {
    * Optional styles to be applied to the droppable area.
    */
   style?: StyleProp<ViewStyle>;
+
+  setHovering?: (state: boolean) => void;
+
+  acceptsType?: string[];
 }
 
 /**
@@ -31,5 +35,6 @@ export interface DroppableData {
   [key: string | number]: {
     layout: ElementLayout;
     payload?: any;
+    acceptsType?: string[],
   };
 }

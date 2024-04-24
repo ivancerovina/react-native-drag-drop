@@ -4,7 +4,7 @@ import { StyleProp, ViewStyle } from "react-native";
 /**
  * Props for the Draggable component, used to create draggable elements.
  */
-export interface DraggableProps {
+export type DraggableProps = {
   /**
    * The child elements to be rendered inside the Draggable component.
    */
@@ -48,4 +48,8 @@ export interface DraggableProps {
    * @param {boolean} state - The dragging state of the element.
    */
   setDragging?: (state: boolean) => void;
+
+  type?: string;
+
+  scaleWhileDragging?: number;
 }

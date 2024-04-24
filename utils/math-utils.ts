@@ -1,6 +1,6 @@
 import { ElementLayout } from "../types/dragdropcontext-types";
 
-function isInside(elementLayout: ElementLayout, zoneLayout: ElementLayout): boolean {
+export function isInside(elementLayout: ElementLayout, zoneLayout: ElementLayout): boolean {
 
     return (elementLayout.x >= zoneLayout.x &&
         elementLayout.x <= zoneLayout.x + zoneLayout.width &&

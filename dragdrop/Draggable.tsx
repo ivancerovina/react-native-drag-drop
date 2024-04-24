@@ -8,11 +8,12 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 
-import React from "react";
+import React, { useState } from "react";
 import * as Haptics from "expo-haptics";
 import { useDragDropContext } from "./DragDropContext";
 import { DraggableProps } from "../types/draggable-types";
-import { DropEvent } from "../types/dragdropcontext-types";
+import { DropEvent, ElementLayout } from "../types/dragdropcontext-types";
+import { isInside } from "../utils/math-utils";
 
 /**
  * Component for creating a draggable element that can be moved within a droppable area.
@@ -41,6 +42,8 @@ function Draggable({
   disabled = false,
   activateAfterLongPress,
   setDragging,
+  type,
+  scaleWhileDragging,
 }: DraggableProps): JSX.Element {
   const dragDropContext = useDragDropContext();
 
@@ -48,7 +51,7 @@ function Draggable({
     throw new Error("Droppables must have a parent element DragDropContext");
   }
 
-  const { droppables, onDrop } = dragDropContext;
+  const { droppables, onDrop, dropCheckOption } = dragDropContext;
 
   const animatedRef = useAnimatedRef();
 
@@ -56,34 +59,79 @@ function Draggable({
   const offsetX = useSharedValue(0);
   const offsetY = useSharedValue(0);
 
+  const [internalDragging, setInternalDragging] = useState(false);
+
   // handling drop
-  const handleDrop = (dropEvent: DropEvent) => {
-    if (!onDrop) {
-      return;
+
+  const handleDrop = (draggableLayout: ElementLayout) => {
+    let dropZone = null;
+
+    for (const key in droppables) {
+      const droppable = droppables[key];
+
+      // type checking
+      if (
+        droppable.acceptsType &&
+        type &&
+        !droppable.acceptsType.includes(type)
+      ) {
+        continue;
+      }
+
+      const droppableLayout = droppable.layout;
+
+      if (!droppableLayout) {
+        throw new Error(
+          "Droppable with ID " + key + " doesn't have a layout"
+        );
+      }
+
+      if (isInside(draggableLayout, droppableLayout)) {
+        dropZone = key;
+        break;
+      }
     }
 
-    const shouldResetTransform = onDrop(dropEvent);
+    // triggering event
+    if (onDrop) {
+      const dropEvent: DropEvent = {
+        draggable: {
+          id: id,
+          payload: payload,
+        },
 
-    if (shouldResetTransform) {
-      offsetX.value = withSpring(0, {
-        duration: 1000,
-        dampingRatio: 1,
-        stiffness: 1,
-      });
+        droppable:
+          dropZone !== null
+            ? {
+                id: dropZone,
+                payload: droppables[dropZone].payload,
+              }
+            : null,
+      };
 
-      offsetY.value = withSpring(0, {
-        duration: 1000,
-        dampingRatio: 1,
-        stiffness: 1,
-      });
+      // deciding whether or not to return the element back into it's
+      // original position
+      const shouldResetTransform = onDrop(dropEvent);
+
+      if (shouldResetTransform) {
+        const options = {
+          duration: 1000,
+          dampingRatio: 1,
+          stiffness: 1,
+        }
+        
+        offsetX.value = withSpring(0, options);
+        offsetY.value = withSpring(0, options);
+      }
     }
-  };
+  }
 
   // handling gestures
   const pan = Gesture.Pan()
     .enabled(!disabled)
     .activateAfterLongPress(activateAfterLongPress ?? 0)
     .onStart((event) => {
+      runOnJS(setInternalDragging)(true);
       if (onDragStart) {
         runOnJS(onDragStart)();
       }
@@ -96,7 +144,7 @@ function Draggable({
     })
     .onChange((event) => {
       // TODO Check if there's a zone underneath every time the element moves
-      // POSSIBLY add a delay between checks
+      // POSSIBLY add a delay between checks for performance
       if (onChange) {
         const measurement = measure(animatedRef);
 
@@ -111,6 +159,8 @@ function Draggable({
       offsetY.value += event.changeY;
     })
     .onFinalize((event) => {
+      runOnJS(setInternalDragging)(false);
+
       if (onDragEnd) {
         runOnJS(onDragEnd)();
       }
@@ -119,88 +169,20 @@ function Draggable({
         runOnJS(setDragging)(false);
       }
 
-      // finding drop zone
-      const measurement = measure(animatedRef);
+      const draggableMeasurement = measure(animatedRef);
 
-      if (measurement === null) {
+      if (draggableMeasurement === null) {
         throw new Error("Measurement of droppable is null");
       }
 
-      const droppableX = measurement.pageX;
-      const droppableY = measurement.pageY;
-      const droppableWidth = measurement.width;
-      const droppableHeight = measurement.height;
-
-      let dropZone = null;
-
-      for (const key in droppables) {
-        const droppable = droppables[key];
-
-        const droppableLayout = droppable.layout;
-
-        if (!droppableLayout) {
-          throw new Error(
-            "Droppable with ID " + key + " doesn't have a layout"
-          );
-        }
-
-        const zoneX = droppableLayout.x;
-        const zoneY = droppableLayout.y;
-        const zoneWidth = droppableLayout.width;
-        const zoneHeight = droppableLayout.height;
-
-        if (
-          (droppableX >= zoneX &&
-            droppableX <= zoneX + zoneWidth &&
-            droppableY >= zoneY &&
-            droppableY <= zoneY + zoneHeight) ||
-          (droppableX + droppableWidth >= zoneX &&
-            droppableX + droppableWidth <= zoneX + zoneWidth &&
-            droppableY >= zoneY &&
-            droppableY <= zoneY + zoneHeight) ||
-          (droppableX >= zoneX &&
-            droppableX <= zoneX + zoneWidth &&
-            droppableY + droppableHeight >= zoneY &&
-            droppableY + droppableHeight <= zoneY + zoneHeight) ||
-          (droppableX + droppableWidth >= zoneX &&
-            droppableX + droppableWidth <= zoneX + zoneWidth &&
-            droppableY + droppableHeight >= zoneY &&
-            droppableY + droppableHeight <= zoneY + zoneHeight)
-        ) {
-          /*if (dropZone !== null) {
-            const prevLayout = droppables[dropZone].layout;
-            const prevZoneX = prevLayout.x;
-            const prevZoneY = prevLayout.y;
-            const prevZoneWidth = prevLayout.width;
-            const prevZoneHeight = prevLayout.height;
-
-            TODO Check which zone is the closest if there are multiple drop zones
-            TODO Separate calculation into a different function
-          }*/
-
-          dropZone = key;
-          break;
-        }
+      const draggableLayout: ElementLayout = {
+        x: draggableMeasurement.pageX,
+        y: draggableMeasurement.pageY,
+        width: draggableMeasurement.width,
+        height: draggableMeasurement.height,
       }
 
-      if (onDrop) {
-        const dropEvent: DropEvent = {
-          draggable: {
-            id: id,
-            payload: payload,
-          },
-
-          droppable:
-            dropZone !== null
-              ? {
-                  id: dropZone,
-                  payload: droppables[dropZone].payload,
-                }
-              : null,
-        };
-
-        runOnJS(handleDrop)(dropEvent);
-      }
+      runOnJS(handleDrop)(draggableLayout);
     });
 
   // animated style
@@ -208,10 +190,8 @@ function Draggable({
     transform: [
       { translateX: offsetX.value },
       { translateY: offsetY.value },
-      { scale: 1 },
+      { scale: internalDragging ? withSpring(scaleWhileDragging ?? 1) : withSpring(1) },
     ],
-
-    opacity: 1,
   }));
 
   // render

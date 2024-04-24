@@ -18,18 +18,22 @@ const DragDropContext = createContext<DragDropContextValues | null>(null);
 export function DragDropProvider({
   children,
   onDrop,
+  dropCheckOption
 }: DragDropProviderProps): JSX.Element {
   const [droppables, setDroppables] = useState<DroppableData>({});
 
   function addDroppable(
     id: string | number,
     layout: ElementLayout,
-    payload?: any
+    payload?: any,
+    acceptsType?: string[]
   ) {
     setDroppables((prev) => ({
+      ...prev,
       [id]: {
         layout: layout,
         payload: payload,
+        acceptsType: acceptsType,
       },
     }));
   }
@@ -43,7 +47,7 @@ export function DragDropProvider({
 
   return (
     <DragDropContext.Provider
-      value={{ droppables, addDroppable, removeDroppable, onDrop }}
+      value={{ droppables, addDroppable, removeDroppable, onDrop, dropCheckOption }}
     >
       {children}
     </DragDropContext.Provider>

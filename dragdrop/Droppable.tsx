@@ -19,6 +19,8 @@ function Droppable({
   id,
   payload,
   style,
+  setHovering,
+  acceptsType
 }: DroppableProps): JSX.Element {
   if (id === undefined || id === null) {
     throw new Error("You must set an ID property for your Draggable element");
@@ -41,7 +43,7 @@ function Droppable({
         width: width,
       };
 
-      addDroppable(id, layout, payload);
+      addDroppable(id, layout, payload, acceptsType);
     });
   };
 
