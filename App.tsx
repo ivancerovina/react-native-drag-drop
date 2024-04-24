@@ -18,10 +18,50 @@ function App() {
     return event.droppable === null;
   };
 
+  const draggableItems = [
+    {
+      id: 1,
+      name: "FRUIT",
+      initialPosition: [0, 0],
+      scaleWhileDragging: 1.1
+    },
+    {
+      id: 2,
+      name: "FRUIT2",
+      initialPosition: [100, 0],
+      scaleWhileDragging: 1.1
+    },
+    {
+      id: 3,
+      name: "FRUIT3",
+      initialPosition: [200, 0],
+      scaleWhileDragging: 1.1
+    },
+    {
+      id: 4,
+      name: "FRUIt5",
+      initialPosition: [200, 0],
+      scaleWhileDragging: 1.1
+    },
+  ]
+
   return (
     <GestureHandlerRootView style={styles.container}>
-      <DragDropProvider onDrop={handleDrop}>
-        <Draggable
+      <DragDropProvider onDrop={handleDrop} dropCheckOption={"closest"}>
+        {
+          draggableItems?.map(item => (
+            <Draggable
+              id={item?.id}
+              type={"fruit"}
+              activateAfterLongPress={100}
+              style={styles.draggable}
+              scaleWhileDragging={item?.scaleWhileDragging}
+            >
+              <Text>{item?.name}</Text>
+            </Draggable>
+          ))
+        }
+        {/* <Draggable
           id={"drag-1"}
           type={"fruit"}
           activateAfterLongPress={100}
@@ -29,7 +69,7 @@ function App() {
           scaleWhileDragging={1.1}
         >
           <Text>FRUIT</Text>
-        </Draggable>
+        </Draggable> */}
         <Droppable
           acceptsType={["fruit"]}
           id={"drop-1"}
@@ -37,7 +77,7 @@ function App() {
         >
           <Text>Fruits</Text>
         </Droppable>
-        <Droppable id={"drop-2"} style={styles.droppable2}>
+        <Droppable id={"drop-2"} style={styles.droppable2} acceptsType={['frudit']}>
           <Text style={{ color: "white" }}>Vegetables</Text>
         </Droppable>
       </DragDropProvider>

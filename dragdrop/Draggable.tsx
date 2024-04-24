@@ -13,7 +13,7 @@ import * as Haptics from "expo-haptics";
 import { useDragDropContext } from "./DragDropContext";
 import { DraggableProps } from "../types/draggable-types";
 import { DropEvent, ElementLayout } from "../types/dragdropcontext-types";
-import { isInside } from "../utils/math-utils";
+import { findCloser, isInside } from "../utils/math-utils";
 
 /**
  * Component for creating a draggable element that can be moved within a droppable area.
@@ -61,6 +61,8 @@ function Draggable({
 
   const [internalDragging, setInternalDragging] = useState(false);
 
+  const [previousState, setPreviousState] = useState({ x: 0, y: 0 });
+
   // handling drop
 
   const handleDrop = (draggableLayout: ElementLayout) => {
@@ -81,14 +83,29 @@ function Draggable({
       const droppableLayout = droppable.layout;
 
       if (!droppableLayout) {
-        throw new Error(
-          "Droppable with ID " + key + " doesn't have a layout"
-        );
+        throw new Error("Droppable with ID " + key + " doesn't have a layout");
       }
 
       if (isInside(draggableLayout, droppableLayout)) {
-        dropZone = key;
-        break;
+        if (dropCheckOption === "closest") {
+          if (dropZone !== null) {
+            const prevZoneLayout = droppables[dropZone].layout;
+            const closer = findCloser(
+              draggableLayout,
+              prevZoneLayout,
+              droppable.layout
+            );
+
+            if (closer !== prevZoneLayout) {
+              dropZone = key;
+            }
+          } else {
+            dropZone = key;
+          }
+        } else {
+          dropZone = key;
+          break;
+        }
       }
     }
 
@@ -118,13 +135,15 @@ function Draggable({
           duration: 1000,
           dampingRatio: 1,
           stiffness: 1,
-        }
-        
-        offsetX.value = withSpring(0, options);
-        offsetY.value = withSpring(0, options);
+        };
+
+        offsetX.value = withSpring(previousState.x, options);
+        offsetY.value = withSpring(previousState.y, options);
+      } else {
+        setPreviousState({ x: offsetX.value, y: offsetY.value });
       }
     }
-  }
+  };
 
   // handling gestures
   const pan = Gesture.Pan()
@@ -180,7 +199,7 @@ function Draggable({
         y: draggableMeasurement.pageY,
         width: draggableMeasurement.width,
         height: draggableMeasurement.height,
-      }
+      };
 
       runOnJS(handleDrop)(draggableLayout);
     });
@@ -190,7 +209,11 @@ function Draggable({
     transform: [
       { translateX: offsetX.value },
       { translateY: offsetY.value },
-      { scale: internalDragging ? withSpring(scaleWhileDragging ?? 1) : withSpring(1) },
+      {
+        scale: internalDragging
+          ? withSpring(scaleWhileDragging ?? 1)
+          : withSpring(1),
+      },
     ],
   }));
 
